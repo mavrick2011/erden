@@ -4,11 +4,14 @@ import at.tamefoxgames.erden.ecs.Entity
 import at.tamefoxgames.erden.ecs.factories.BlockFactory
 import at.tamefoxgames.erden.ecs.systems.RenderSystem
 import at.tamefoxgames.erden.ecs.templates.BlockTemplate
+import com.badlogic.gdx.graphics.Camera
+import com.badlogic.gdx.graphics.g3d.Environment
+import com.badlogic.gdx.graphics.g3d.ModelBatch
 import com.badlogic.gdx.math.Vector3
 
-class World(private val chunkSizeX: Int, private val chunkSizeZ: Int, private val chunkHeight: Int) {
+class World(val chunkSizeX: Int, val chunkSizeZ: Int, val chunkHeight: Int) {
     val entities = mutableListOf<Entity>()
-    private val chunks = mutableMapOf<Pair<Int, Int>, Chunk>()
+    val chunks = mutableMapOf<Pair<Int, Int>, Chunk>()
     private val worldGenerator = WorldGenerator(chunkSizeX, chunkSizeZ, chunkHeight)
 
     /**
@@ -30,38 +33,70 @@ class World(private val chunkSizeX: Int, private val chunkSizeZ: Int, private va
         val chunk = Chunk(chunkSizeX, chunkHeight, chunkSizeZ)
         worldGenerator.generateChunk(chunkX, chunkZ, chunk)
         chunks[Pair(chunkX, chunkZ)] = chunk
+    }
 
-        // Convert chunk blocks into entities and add to the world
-        for (x in 0 until chunkSizeX) {
-            for (y in 0 until chunkHeight) {
-                for (z in 0 until chunkSizeZ) {
-                    val blockTemplate = chunk.getBlock(x, y, z)
-                    if (blockTemplate != null) {
-                        addBlock(
-                            x.toFloat() + chunkX * chunkSizeX,
-                            y.toFloat(),
-                            z.toFloat() + chunkZ * chunkSizeZ,
-                            blockTemplate
-                        )
-                    }
-                }
-            }
+    /**
+     * Add a block at the specified position in the world.
+     * It determines which chunk the block belongs to and adds it there.
+     */
+    fun addBlock(x: Float, y: Float, z: Float, blockTemplate: BlockTemplate) {
+        // Calculate which chunk the block belongs to
+        val chunkX = (x / chunkSizeX).toInt()
+        val chunkZ = (z / chunkSizeZ).toInt()
+
+        // Get the chunk from the map
+        val chunk = chunks[Pair(chunkX, chunkZ)]
+
+        if (chunk != null) {
+            // Set the block within the chunk
+            val blockX = (x % chunkSizeX).toInt()
+            val blockY = y.toInt()
+            val blockZ = (z % chunkSizeZ).toInt()
+
+            chunk.setBlock(blockX, blockY, blockZ, blockTemplate)
+
+            // Optionally, you can also convert the block to an entity and add it to the entity list
+            val position = Vector3(x, y, z)
+            val block = BlockFactory.createBlock(position, blockTemplate)
+            entities.add(block)
+        } else {
+            println("No chunk found for position: ($x, $y, $z)")
         }
     }
 
     /**
-     * Add a block at a specific position using a BlockTemplate.
+     * Render the world using the RenderSystem, but only render chunks within the render distance.
      */
-    fun addBlock(x: Float, y: Float, z: Float, blockTemplate: BlockTemplate) {
-        val position = Vector3(x, y, z)
-        val block = BlockFactory.createBlock(position, blockTemplate)
-        entities.add(block)
+    fun render(renderSystem: RenderSystem, deltaTime: Float, camera: Camera, modelBatch: ModelBatch, environment: Environment) {
+        // Filter chunks and render only those within the render distance
+        for ((chunkPos, chunk) in chunks) {
+            val (chunkX, chunkZ) = chunkPos
+
+            // Check if the chunk is within the render distance
+            if (shouldRenderChunk(chunkX, chunkZ, camera)) {
+                chunk.render(modelBatch, environment) // Render the chunk using ModelBatch
+            }
+        }
+        renderSystem.update(entities, deltaTime) // Render components via RenderSystem
     }
 
     /**
-     * Render the entire world using the RenderSystem.
+     * Define the maximum render distance in chunks.
      */
-    fun render(renderSystem: RenderSystem, deltaTime: Float) {
-        renderSystem.update(entities, deltaTime)
+    private val maxRenderDistance = 8
+
+    /**
+     * Check if a chunk is within the render distance of the camera.
+     */
+    private fun shouldRenderChunk(chunkX: Int, chunkZ: Int, camera: Camera): Boolean {
+        // Get chunk center position
+        val chunkCenterX = chunkX * chunkSizeX + chunkSizeX / 2
+        val chunkCenterZ = chunkZ * chunkSizeZ + chunkSizeZ / 2
+
+        // Calculate distance from camera to chunk center
+        val distance = Vector3(chunkCenterX.toFloat(), 0f, chunkCenterZ.toFloat()).dst(camera.position)
+
+        // Convert distance to chunk scale and compare with max render distance
+        return (distance / Math.max(chunkSizeX, chunkSizeZ)) <= maxRenderDistance
     }
 }

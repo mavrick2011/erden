@@ -31,26 +31,24 @@ class Erden : KtxApplicationAdapter {
             add(DirectionalLight().set(1f, 1f, 1f, -1f, -0.8f, -0.2f))
         }
 
-        // Create the camera through CameraFactory using CameraType
-        cameraController = CameraFactory.createCamera(CameraType.FIRST_PERSON)
-        info { "Camera initialized." }
 
         // Create the world
         world = World(16, 16, 16)  // Define chunk size
-        world.generateWorld(chunkRangeX = 4, chunkRangeZ = 4)   // Generate the initial chunk
-
+        world.generateWorld(chunkRangeX = 4, chunkRangeZ = 4) // Generate the initial chunk
+        info { "World generated." }
+        // Create the camera through CameraFactory using CameraType
+        cameraController = CameraFactory.createCamera(CameraType.FIRST_PERSON, world)
+        info { "Camera initialized." }
         // Add a debug block in the world to ensure something is rendered
         world.addBlock(0f, 0f, 0f, GrassTemplate)
 
         info { "Number of entities in the world: ${world.entities.size}" }
-
 
         // Initialize the render system
         renderSystem = RenderSystem(modelBatch, environment, cameraController)
         info { "World and RenderSystem initialized." }
         info { "Camera position: ${cameraController.getCamera().position}" }
         info { "Camera direction: ${cameraController.getCamera().direction}" }
-
     }
 
     override fun render() {
@@ -62,7 +60,7 @@ class Erden : KtxApplicationAdapter {
         cameraController.update()
 
         // Render the world
-        world.render(renderSystem, Gdx.graphics.deltaTime)
+        world.render(renderSystem, Gdx.graphics.deltaTime, cameraController.getCamera(), modelBatch, environment)
     }
 
     override fun dispose() {

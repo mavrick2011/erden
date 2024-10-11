@@ -2,11 +2,12 @@ import at.tamefoxgames.erden.camera.CameraBehavior
 import at.tamefoxgames.erden.camera.CameraType
 import at.tamefoxgames.erden.camera.IsoOrthoCameraController
 import at.tamefoxgames.erden.camera.ThirdPersonCameraController
+import at.tamefoxgames.erden.ecs.world.World
 import com.badlogic.gdx.graphics.PerspectiveCamera
 import com.badlogic.gdx.graphics.OrthographicCamera
 
 object CameraFactory {
-    fun createCamera(type: CameraType): CameraBehavior {
+    fun createCamera(type: CameraType, world: World): CameraBehavior {
         return when (type) {
             CameraType.FIRST_PERSON -> FirstPersonCameraController(
                 PerspectiveCamera(67f, 16f, 9f).apply {
@@ -15,7 +16,8 @@ object CameraFactory {
                     near = 0.1f
                     far = 100f
                     update()  // Ensure camera is updated after setting the properties
-                }
+                },
+                world
             )
             CameraType.THIRD_PERSON -> ThirdPersonCameraController(
                 PerspectiveCamera(67f, 16f, 9f).apply {
